@@ -1,0 +1,85 @@
+version: '3.9'
+services:
+  # Service untuk Backend Golang
+  backend:
+    build:
+      context: ./go-server # Path ke folder backend Anda
+      dockerfile: Dockerfile # membuat images
+    container_name: note-app-backend
+    ports:
+      - "8080:8080" # Map host port 8080 ke container port 8080 (Go app akan mendengarkan di sini)
+    environment:
+      # Variabel lingkungan dari .env file backend akan diinject
+      # Ini akan membuat MONGO_URI dan DB_COLLECTION_NAME tersedia
+      # Pastikan kode Go membaca dari env var ini
+      MONGO_URI: mongodb://db:27017
+      DB_NAME: todolist
+      DB_COLLECTION_NAME: todolist
+    depends_on:
+      - db # Backend bergantung pada database
+    networks:
+      - note-app # Terhubung ke jaringan khusus 'note-app'
+
+  # Service untuk Frontend React (dengan Nginx)
+  frontend:
+    build:
+      context: ./client # Path ke folder frontend Anda
+      dockerfile: Dockerfile
+    container_name: note-app-frontend
+    ports:
+      - "3001:80" # Map host port 3000 ke container Nginx port 80
+    environment:
+      # PENTING: Frontend akan memanggil backend menggunakan IP host Docker (atau nama service)
+      # Ini akan di-inject ke aplikasi React saat build
+      REACT_APP_BACKEND_URL: http://localhost:8080 # <-- Nanti ini akan disesuaikan ke IP VirtualBox Anda
+    depends_on:
+      - backend # Frontend bergantung pada backend
+    networks:
+      - note-app
+
+  # Service untuk Database MongoDB
+  db:
+    image: mongo:latest # Gunakan image resmi MongoDB
+    container_name: mongodb_server
+    ports:
+      - "27017:27017" # Map host port 27017 ke container port 27017 (opsional untuk akses mongosh dari host)
+    environment:
+      # Konfigurasi MongoDB (sesuaikan jika Anda ingin user/password)
+      MONGO_INITDB_DATABASE: todolist # Nama database yang akan dibuat otomatis
+    volumes:
+      - mongodb_data:/data/db # Volume persisten untuk data MongoDB
+    networks:
+      - note-app
+
+  # Service untuk phpMyAdmin (opsional, tapi sangat berguna untuk MongoDB)
+  # Jika Anda ingin phpMyAdmin untuk MongoDB, Anda mungkin mencari Mongo Express
+  # atau MongoDB Compass, karena phpMyAdmin untuk MySQL/MariaDB.
+  # Untuk MongoDB, Anda bisa gunakan Mongo Express (jika Anda tidak ingin instal Compass)
+  # Contoh Mongo Express:
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo_express_ui
+    restart: always
+    ports:
+      - 8081:8081 # UI akan diakses di host port 8081
+    environment:
+      ME_CONFIG_MONGODB_SERVER: db # Host MongoDB adalah nama service 'db'
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: 'true' # Izinkan akses admin
+      # ME_CONFIG_MONGODB_AUTH_USERNAME: root # Jika Anda punya auth untuk Mongo
+      # ME_CONFIG_MONGODB_AUTH_PASSWORD: password
+      ME_CONFIG_BASICAUTH_USERNAME: admin # Username untuk login ke Mongo Express UI
+      ME_CONFIG_BASICAUTH_PASSWORD: adminpassword
+    networks:
+      - note-app
+    depends_on:
+      - db
+
+# Definisi Jaringan
+networks:
+  note-app:
+    external: true # Menggunakan jaringan 'note-app' yang sudah Anda buat
+
+# Definisi Volume
+volumes:
+  mongodb_data:

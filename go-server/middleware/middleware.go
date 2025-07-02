@@ -38,7 +38,7 @@ func loadTheEnv() {
 
 func createDBInstance() {
 	// DB connection string
-	connectionString := os.Getenv("DB_URI")
+	connectionString := os.Getenv("MONGO_URI")
 	
 	// Database Name
 	dbName := os.Getenv("DB_NAME")
